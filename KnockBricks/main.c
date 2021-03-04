@@ -31,6 +31,7 @@ typedef struct Ball {
 
 /*È«¾Ö±äÁ¿*/
 Brick* first = NULL;  //µÚÒ»¿é×©
+Brick* wall = NULL;
 Ball* ball = NULL;
 Brick* tray = NULL;
 Brick* p = NULL;
@@ -63,17 +64,39 @@ void pos(int x, int y) {
 }
 
 void initmap(void) {
+	Brick* nextwall = NULL;
 	int i;
-	for (i = 0; i <= 56; i += 2) {
-		pos(i, 0);
+	wall = (Brick*)malloc(sizeof(Brick));
+	wall->x = 0;
+	wall->y = 30;
+	wall->next = NULL;
+	for (i = 29; i >= 0; i -= 1) {
+		nextwall = (Brick*)malloc(sizeof(Brick));
+		nextwall->x = 0;
+		nextwall->y = i;
+		nextwall->next = wall;
+		wall = nextwall;
+	}
+	for (i = 2; i <= 56; i += 2) {
+		nextwall = (Brick*)malloc(sizeof(Brick));
+		nextwall->x = i;
+		nextwall->y = 0;
+		nextwall->next = wall;
+		wall = nextwall;
+	}
+	for (i = 1; i <= 30; i += 1) {
+		nextwall = (Brick*)malloc(sizeof(Brick));
+		nextwall->x = 56;
+		nextwall->y = i;
+		nextwall->next = wall;
+		wall = nextwall;
+	}
+	for (p = wall; p != NULL; p = p->next) {
+		pos(p->x, p->y);
+		//printf("%d %d",p->x,p->y);
 		printf("¡õ");
 	}
-	for (i = 1; i <= 29; i++) {
-		pos(0, i);
-		printf("¡õ");
-		pos(56, i);
-		printf("¡õ");
-	}
+
 }
 
 void initbricks(void) {
@@ -81,12 +104,12 @@ void initbricks(void) {
 	int i;
 	first = (Brick*)malloc(sizeof(Brick));
 	first->x = 2;
-	first->y = 21;
+	first->y = 1;
 	first->next = NULL;
 	for (i = 4; i <= 54 * 4; i += 2) {
 		brick = (Brick*)malloc(sizeof(Brick));
 		brick->x = (i - 2) % 54 + 2;
-		brick->y = (i - 2) / 54 + 21;
+		brick->y = (i - 2) / 54 + 1;
 		brick->next = first;
 		first = brick;
 	}
@@ -95,6 +118,7 @@ void initbricks(void) {
 		//printf("%d %d",p->x,p->y);
 		printf("¡ö");
 	}
+
 }
 
 void initbricks2(void) {
@@ -118,13 +142,7 @@ void initbricks2(void) {
 		brick->next = first;
 		first = brick;
 	}
-	for (i = 52; i >= 2; i -= 2) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = i;
-		brick->y = 29;
-		brick->next = first;
-		first = brick;
-	}
+	
 	for (i = 28; i >= 2; i -= 1) {
 		brick = (Brick*)malloc(sizeof(Brick));
 		brick->x = 2;
@@ -146,6 +164,14 @@ void initbricks2(void) {
 		brick->next = first;
 		first = brick;
 	}
+
+	brick = (Brick*)malloc(sizeof(Brick));
+	brick->x = 20;
+	brick->y = 15;
+	brick->next = first;
+	first = brick;
+
+
 	for (p = first; p != NULL; p = p->next) {
 		pos(p->x, p->y);
 		//printf("%d %d",p->x,p->y);
@@ -243,62 +269,81 @@ void ballmove(void) {
 	time_t t;
 	switch (ball->angle) {
 	case 1:
+		//ÅÐ¶Ï×²×©
 		nextball->x = ball->x + 2;
 		nextball->y = ball->y - 2;
 		nextball->angle = 1;
 		for (p = first; p != NULL; p = p->next) {
-			if (p->x == ball->x && p->y == ball->y - 1) {
-				nextball->x = ball->x;
-				nextball->y = ball->y;
-				nextball->angle = 6;
-
-				pos(ball->x, ball->y);
-				printf("  ");
-				free(ball);
-				ball = nextball;
-				pos(ball->x, ball->y);
-				printf("¡ñ");
-				return;
-
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1;
 			}
-
+			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y - 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 6;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 12;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y - 1;
+			nextball->angle = 6;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 11;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y - 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 6;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 12;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y - 1;
+			nextball->angle = 6;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 11;
 		}
 
-		for (p = first; p != NULL; p = p->next) {
-			if (p->x == ball->x + 2 && p->y == ball->y - 1) {
-				nextball->x = ball->x;
-				nextball->y = ball->y - 1;
-				nextball->angle = 12;
-
-				pos(ball->x, ball->y);
-				printf("  ");
-				free(ball);
-				ball = nextball;
-				pos(ball->x, ball->y);
-				printf("¡ñ");
-				return;
-			}
-
-		}
-
-		for (p = first; p != NULL; p = p->next) {
-
-			if (p->x == ball->x + 2 && p->y == ball->y - 2) {
-				nextball->x = ball->x + 2;
-				nextball->y = ball->y - 1;
-				nextball->angle = 6;
-
-				pos(ball->x, ball->y);
-				printf("  ");
-				free(ball);
-				ball = nextball;
-				pos(ball->x, ball->y);
-				printf("¡ñ");
-				return;
-			}
-
-
-		}
 		pos(ball->x, ball->y);
 		printf("  ");
 		free(ball);
@@ -312,14 +357,15 @@ void ballmove(void) {
 		nextball->x = ball->x + 2;
 		nextball->y = ball->y - 1;
 		nextball->angle = 2;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
 				block += 1;
 			}
 			if ((p->x == ball->x + 2 && p->y == ball->y)) {
 				block += 10;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
 				block += 100;
 			}
 		}
@@ -329,22 +375,78 @@ void ballmove(void) {
 			nextball->y = ball->y;
 			nextball->angle = 8;
 			break;
-		case 110:
+		case 11:
 			nextball->x = ball->x;
 			nextball->y = ball->y;
 			nextball->angle = 8;
+			break;
+		case 110:
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 11;
 			break;
 		case 101:
 			nextball->x = ball->x + 2;
 			nextball->y = ball->y;
 			nextball->angle = 5;
 			break;
+		case 100:
+			srand((unsigned)time(&t));
+			if (rand() % 100 > 66) {
+				nextball->x = ball->x + 2;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 4;
+			}
+			else if (rand() % 100 > 33) {
+				nextball->x = ball->x;
+				nextball->y = ball->y - 1;
+				nextball->angle = rand() % 3 + 10;
+			}
+			else {
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 9 + 7;
+			}
+			break;
+		default:
+			break;
+
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 111:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 8;
+			break;
 		case 11:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 8;
+			break;
+		case 110:
 			nextball->x = ball->x;
 			nextball->y = ball->y - 1;
 			nextball->angle = 11;
 			break;
-		case 1:
+		case 101:
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+			break;
+		case 100:
 			srand((unsigned)time(&t));
 			if (rand() % 100 > 66) {
 				nextball->x = ball->x + 2;
@@ -381,6 +483,7 @@ void ballmove(void) {
 		nextball->x = ball->x + 4;
 		nextball->y = ball->y - 1;
 		nextball->angle = 3;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x + 2 && p->y == ball->y)) {
 				block += 1;
@@ -390,6 +493,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x + 4 && p->y == ball->y - 1)) {
 				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 10000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -407,7 +513,47 @@ void ballmove(void) {
 			nextball->y = ball->y - 1;
 			nextball->angle = 10;
 		}
-
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 4 && p->y == ball->y - 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 10000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 10;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 4;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y - 1;
+			nextball->angle = 10;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+		}
 
 		pos(ball->x, ball->y);
 		printf("  ");
@@ -425,6 +571,7 @@ void ballmove(void) {
 		nextball->x = ball->x + 4;
 		nextball->y = ball->y + 1;
 		nextball->angle = 4;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x + 2 && p->y == ball->y)) {
 				block += 1;
@@ -434,6 +581,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x + 4 && p->y == ball->y + 1)) {
 				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -451,6 +601,93 @@ void ballmove(void) {
 			nextball->y = ball->y + 1;
 			nextball->angle = 9;
 		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 4 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 9;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 3;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 9;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+		}
+		//ÅÐ¶Ï×²ÅÌ
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 4 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 9;
+		}
+		else if (block % 100 == 10) {
+			if (block / 1000 == 1) {
+				nextball->x = ball->x + 2;
+				nextball->y = ball->y;
+				nextball->angle = 3;
+			}
+			else {
+				srand((unsigned)time(&t));
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 10;
+				
+			}
+			
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 9;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = rand() % 2 + 3;
+		}
 
 
 		pos(ball->x, ball->y);
@@ -463,10 +700,15 @@ void ballmove(void) {
 		return;
 
 
+
+
+
+
 	case 5:
 		nextball->x = ball->x + 2;
 		nextball->y = ball->y + 1;
 		nextball->angle = 5;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x + 2 && p->y == ball->y)) {
 				block += 1;
@@ -514,8 +756,102 @@ void ballmove(void) {
 			else {
 				nextball->x = ball->x;
 				nextball->y = ball->y;
-				nextball->angle = rand() % 9 + 10;
+				nextball->angle = rand() % 3 + 10;
 			}
+			break;
+		default:
+			break;
+
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 111:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+			break;
+		case 11:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+			break;
+		case 101:
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 8;
+			break;
+		case 110:
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+			break;
+		case 100:
+			srand((unsigned)time(&t));
+			if (rand() % 100 > 66) {
+				nextball->x = ball->x + 2;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 1;
+			}
+			else if (rand() % 100 > 33) {
+				nextball->x = ball->x;
+				nextball->y = ball->y + 1;
+				nextball->angle = rand() % 3 + 7;
+			}
+			else {
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 10;
+			}
+			break;
+		default:
+			break;
+
+		}
+		//ÅÐ¶Ï×²ÅÌ
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 1:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 8;
+			break;
+		case 110:
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+			break;
+		case 10:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 3 * (rand() % 2) + 2;
+			break;
+		case 100:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 9 * (rand() % 2) + 1;
 			break;
 		default:
 			break;
@@ -538,6 +874,7 @@ void ballmove(void) {
 		nextball->x = ball->x + 2;
 		nextball->y = ball->y + 2;
 		nextball->angle = 6;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x && p->y == ball->y + 1)) {
 				block += 1;
@@ -547,6 +884,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x + 2 && p->y == ball->y + 2)) {
 				block += 100;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -564,8 +904,83 @@ void ballmove(void) {
 			nextball->y = ball->y + 1;
 			nextball->angle = 1;
 		}
-
-
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 8;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 1;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 7;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 1;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 8;
+		}
+		//ÅÐ¶Ï×²ÅÌ
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y + 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 1;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 7;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 1;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 3 * (rand() % 2) + 6;
+		}
 		pos(ball->x, ball->y);
 		printf("  ");
 		free(ball);
@@ -579,6 +994,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 2;
 		nextball->y = ball->y + 2;
 		nextball->angle = 7;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x && p->y == ball->y + 1)) {
 				block += 1;
@@ -588,6 +1004,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x - 2 && p->y == ball->y + 2)) {
 				block += 100;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -604,6 +1023,83 @@ void ballmove(void) {
 			nextball->x = ball->x - 2;
 			nextball->y = ball->y + 1;
 			nextball->angle = 12;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 5;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 12;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 6;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 12;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 5;
+		}
+		//ÅÐ¶Ï×²ÅÌ
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 12;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 6;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 12;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 3 * (rand() % 2) + 4;
 		}
 
 
@@ -622,6 +1118,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 2;
 		nextball->y = ball->y + 1;
 		nextball->angle = 8;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x - 2 && p->y == ball->y)) {
 				block += 1;
@@ -676,6 +1173,102 @@ void ballmove(void) {
 			break;
 
 		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 111:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+			break;
+		case 11:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 2;
+			break;
+		case 101:
+			nextball->x = ball->x;
+			nextball->y = ball->y + 1;
+			nextball->angle = 5;
+			break;
+		case 110:
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+			break;
+		case 100:
+			srand((unsigned)time(&t));
+			if (rand() % 100 > 66) {
+				nextball->x = ball->x - 2;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 10;
+			}
+			else if (rand() % 100 > 33) {
+				nextball->x = ball->x;
+				nextball->y = ball->y + 1;
+				nextball->angle = rand() % 3 + 4;
+			}
+			else {
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 9 + 1;
+			}
+			break;
+		default:
+			break;
+
+		}
+		//ÅÐ¶Ï×²×©
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 1:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+			break;
+		case 110:
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+			break;
+		case 10:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 3 * (rand() % 2) + 8;
+			break;
+		case 100:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 9 * (rand() % 2) + 3;
+			break;
+		default:
+			break;
+
+		}
+
+
 		pos(ball->x, ball->y);
 		printf("  ");
 		free(ball);
@@ -690,6 +1283,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 4;
 		nextball->y = ball->y + 1;
 		nextball->angle = 9;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x - 2 && p->y == ball->y)) {
 				block += 1;
@@ -699,6 +1293,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x - 4 && p->y == ball->y + 1)) {
 				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -716,7 +1313,93 @@ void ballmove(void) {
 			nextball->y = ball->y + 1;
 			nextball->angle = 4;
 		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 4 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 4;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 10;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 4;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+		}
+		//ÅÐ¶Ï×²ÅÌ
+		block = 0;
+		for (p = tray; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 4 && p->y == ball->y + 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y + 1)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 4;
+		}
+		else if (block % 100 == 10) {
+			if (block / 1000 == 1) {
+				nextball->x = ball->x - 2;
+				nextball->y = ball->y;
+				nextball->angle = 10;
+			}
+			else {
+				srand((unsigned)time(&t));
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 1;
 
+			}
+
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x + 2;
+			nextball->y = ball->y + 1;
+			nextball->angle = 4;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = rand() % 2 + 9;
+		}
 
 		pos(ball->x, ball->y);
 		printf("  ");
@@ -731,6 +1414,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 4;
 		nextball->y = ball->y - 1;
 		nextball->angle = 10;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x - 2 && p->y == ball->y)) {
 				block += 1;
@@ -740,6 +1424,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x - 4 && p->y == ball->y - 1)) {
 				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -757,6 +1444,47 @@ void ballmove(void) {
 			nextball->y = ball->y - 1;
 			nextball->angle = 3;
 		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 4 && p->y == ball->y - 1)) {
+				block += 100;
+			}
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 3;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 9;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y - 1;
+			nextball->angle = 3;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 11;
+		}
 
 
 		pos(ball->x, ball->y);
@@ -773,6 +1501,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 2;
 		nextball->y = ball->y - 1;
 		nextball->angle = 11;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x - 2 && p->y == ball->y)) {
 				block += 1;
@@ -827,6 +1556,63 @@ void ballmove(void) {
 			break;
 
 		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1;
+			}
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+				block += 100;
+			}
+		}
+		switch (block) {
+		case 111:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+			break;
+		case 11:
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 5;
+			break;
+		case 101:
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 2;
+			break;
+		case 110:
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y;
+			nextball->angle = 8;
+			break;
+		case 100:
+			srand((unsigned)time(&t));
+			if (rand() % 100 > 66) {
+				nextball->x = ball->x - 2;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 3 + 7;
+			}
+			else if (rand() % 100 > 33) {
+				nextball->x = ball->x;
+				nextball->y = ball->y - 1;
+				nextball->angle = rand() % 3 + 1;
+			}
+			else {
+				nextball->x = ball->x;
+				nextball->y = ball->y;
+				nextball->angle = rand() % 9 + 4;
+			}
+			break;
+		default:
+			break;
+
+		}
+
 		pos(ball->x, ball->y);
 		printf("  ");
 		free(ball);
@@ -843,6 +1629,7 @@ void ballmove(void) {
 		nextball->x = ball->x - 2;
 		nextball->y = ball->y - 2;
 		nextball->angle = 12;
+		//ÅÐ¶Ï×²×©
 		for (p = first; p != NULL; p = p->next) {
 			if ((p->x == ball->x && p->y == ball->y - 1)) {
 				block += 1;
@@ -852,6 +1639,9 @@ void ballmove(void) {
 			}
 			if ((p->x == ball->x - 2 && p->y == ball->y - 2)) {
 				block += 100;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1000;
 			}
 		}
 		if (block % 10 == 1) {
@@ -868,6 +1658,47 @@ void ballmove(void) {
 			nextball->x = ball->x - 2;
 			nextball->y = ball->y - 1;
 			nextball->angle = 7;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 2;
+		}
+		//ÅÐ¶Ï×²Ç½
+		block = 0;
+		for (p = wall; p != NULL; p = p->next) {
+			if ((p->x == ball->x && p->y == ball->y - 1)) {
+				block += 1;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+				block += 10;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y - 2)) {
+				block += 100;
+			}
+			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+				block += 1000;
+			}
+		}
+		if (block % 10 == 1) {
+			nextball->x = ball->x;
+			nextball->y = ball->y;
+			nextball->angle = 7;
+		}
+		else if (block % 100 == 10) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 1;
+		}
+		else if (block % 1000 == 100) {
+			nextball->x = ball->x - 2;
+			nextball->y = ball->y - 1;
+			nextball->angle = 7;
+		}
+		else if (block % 10000 == 1000) {
+			nextball->x = ball->x;
+			nextball->y = ball->y - 1;
+			nextball->angle = 2;
 		}
 
 
@@ -892,8 +1723,11 @@ void ballmove(void) {
 void gameloop(void) {
 	int n = 0;
 	while (ball != NULL) {
+		if (ball->y > 35) {
+			exit(0);
+		}
 		traymove();
-		if (n % 20 == 0) {
+		if (n % 80 == 0) {
 			ballmove();
 			n = 1;
 		}
@@ -909,8 +1743,8 @@ void gameloop(void) {
 int main(void) {
 	//system("mode con cols=100 lines=30");
 	initmap();
-	initbricks2();
-	//inittray();
+	initbricks();
+	inittray();
 	initball();
 	gameloop();
 }
