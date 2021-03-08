@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <time.h>
 
+
 #define UPRIGHT1 1
 #define UPRIGHT2 2
 #define UPRIGHT3 3
@@ -46,12 +47,17 @@ Brick* first = NULL;  //第一块砖
 Brick* wall = NULL;
 Brick* node = NULL;
 Brick* node2 = NULL;
-Ball* ball = NULL;
+Ball* balls[1000] = { NULL };
 Brick* tray = NULL;
 Brick* p = NULL;
 Brick* q = NULL; 
 Brick* r = NULL;  //托盘指针
 HittedBrick* hitbrick;
+int ballnumber;
+int ballcount;
+int endgamestatus;
+int score;
+
 
 
 
@@ -61,14 +67,15 @@ void pos(int x, int y);
 void initmap(void);
 void initbricks(void);
 void inittray(void);
-void initball(void);
+void initball(int ballnumber);
 void traymove(void);
-void ballmove(void);
-Ball* ballbounce(Ball* next);
+void ballmove(int ballnumber);
 void brickbreak(Brick* b,Brick* q);
-void endgame(void);
+void endgame(int endgamestatus);
 void gameloop(void);
 void welcometogame(void);
+void bonus(void);
+void bonusball(int ballnumber);
 
 void pos(int x, int y) {
 	COORD pos;
@@ -108,6 +115,14 @@ void initmap(void) {
 		nextwall->next = wall;
 		wall = nextwall;
 	}
+
+	for (i = 10; i <= 46; i += 2) {
+		nextwall = (Brick*)malloc(sizeof(Brick));
+		nextwall->x = i;
+		nextwall->y = 12;
+		nextwall->next = wall;
+		wall = nextwall;
+	}
 	for (p = wall; p != NULL; p = p->next) {
 		pos(p->x, p->y);
 		//printf("%d %d",p->x,p->y);
@@ -127,7 +142,7 @@ void initbricks(void) {
 	node->x = 950414;
 	node->y = 950414;
 	node->next = wall;
-	for (i = 4; i <= 54 * 4; i += 2) {
+	for (i = 4; i <= 54 * 6; i += 2) {
 		brick = (Brick*)malloc(sizeof(Brick));
 		brick->x = (i - 2) % 54 + 2;
 		brick->y = (i - 2) / 54 + 1;
@@ -147,56 +162,18 @@ void initbricks2(void) {
 	Brick* brick = NULL;
 	int i;
 	first = (Brick*)malloc(sizeof(Brick));
-	first->x = 2;
+	node = (Brick*)malloc(sizeof(Brick));
+	first->x = 40;
 	first->y = 1;
-	first->next = NULL;
-	for (i = 4; i <= 54; i += 2) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = i;
-		brick->y = 1;
-		brick->next = first;
-		first = brick;
-	}
-	for (i = 2; i <= 29; i += 1) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = 54;
-		brick->y = i;
-		brick->next = first;
-		first = brick;
-	}
+	first->next = node;      //利用node连接砖和墙用于同时遍历
+	node->x = 950414;
+	node->y = 950414;
+	node->next = wall;
 	
-	for (i = 28; i >= 2; i -= 1) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = 2;
-		brick->y = i;
-		brick->next = first;
-		first = brick;
-	}
-	for (i = 16; i <= 40; i += 2) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = i;
-		brick->y = 10;
-		brick->next = first;
-		first = brick;
-	}
-	for (i = 15; i <= 20; i += 1) {
-		brick = (Brick*)malloc(sizeof(Brick));
-		brick->x = 28;
-		brick->y = i;
-		brick->next = first;
-		first = brick;
-	}
-
-	brick = (Brick*)malloc(sizeof(Brick));
-	brick->x = 20;
-	brick->y = 15;
-	brick->next = first;
-	first = brick;
 
 
-	for (p = first; p != NULL; p = p->next) {
+	for (p = first; p->x != 950414; p = p->next) {
 		pos(p->x, p->y);
-		//printf("%d %d",p->x,p->y);
 		printf("■");
 	}
 }
@@ -225,13 +202,32 @@ void inittray(void) {
 	}
 }
 
-void initball(void) {
-	ball = (Brick*)malloc(sizeof(Brick));
-	ball->x = 4;
-	ball->y = 10;
-	ball->angle = 3;
-	pos(ball->x, ball->y);
+void initball(int ballnumber) {
+	time_t t;
+	srand((unsigned)time(&t));
+	balls[ballnumber] = (Ball*)malloc(sizeof(Ball));
+	balls[ballnumber]->x = 2 * (rand() % 10) + 20;
+	balls[ballnumber]->y = 8;
+	balls[ballnumber]->angle = (rand() % 6) + 4;
+	pos(balls[ballnumber]->x, balls[ballnumber]->y);
 	printf("●");
+}
+
+void bonusball(int ballnumber) {
+	time_t t;
+	srand((unsigned)time(&t) * ballnumber);
+	balls[ballnumber] = (Ball*)malloc(sizeof(Ball));
+	int i;
+	for (i = ballcount - 1; i >= 0; i--) {
+		if (balls[i] != NULL) {
+			balls[ballnumber]->x = balls[i]->x;
+			balls[ballnumber]->y = balls[i]->y;;
+			balls[ballnumber]->angle = rand() % 12 + 1;
+			pos(balls[ballnumber]->x, balls[ballnumber]->y);
+			printf("●");
+		}
+	}
+	
 }
 
 void traymove(void) {
@@ -261,34 +257,7 @@ void traymove(void) {
 	}
 }
 
-Ball* ballbounce(Ball* nextball) {
-	switch (ball->angle) {
-	case 1:
-		for (p = first; p != NULL; p = p->next) {
-			if (p->x == ball->x && p->y == ball->y - 1) {
-				nextball->x = ball->x + 1;
-				nextball->y = ball->y;
-				nextball->angle = 5;
-			}
-			else if (p->x == ball->x + 1 && p->y == ball->y - 1) {
-				nextball->x = ball->x;
-				nextball->y = ball->y - 2;
-				nextball->angle = 12;
-			}
-			else if (p->x == ball->x + 1 && p->y == ball->y - 2) {
-				nextball->x = ball->x + 2;
-				nextball->y = ball->y - 1;
-				nextball->angle = 5;
-			}
-		}
-
-	}
-	
-
-}
-
-
-void ballmove(void) {
+void ballmove(int ballnumber) {
 	Ball* nextball = NULL;
 	nextball = (Ball*)malloc(sizeof(Ball));
 	hitbrick = (HittedBrick*)malloc(sizeof(HittedBrick));
@@ -300,66 +269,66 @@ void ballmove(void) {
 	int wallblock = 0;
 	int briblock = 0;
 	time_t t;
-	switch (ball->angle) {
+	switch (balls[ballnumber]->angle) {
 	case 1:
 	
-		nextball->x = ball->x + 2;
-		nextball->y = ball->y - 2;
+		nextball->x = balls[ballnumber]->x + 2;
+		nextball->y = balls[ballnumber]->y - 2;
 		nextball->angle = 1;
 
 		//判断撞墙
 		for (p = first; p != NULL; p = p->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 2)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 2)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 6;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 12;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 6;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 11;
 		}
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 2)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 2)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -378,70 +347,70 @@ void ballmove(void) {
 			brickbreak(hitbrick->b1000, hitbrick->q1000);
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		
 		return;
 
 	case 2:
-		nextball->x = ball->x + 2;
-		nextball->y = ball->y - 1;
+		nextball->x = balls[ballnumber]->x + 2;
+		nextball->y = balls[ballnumber]->y - 1;
 		nextball->angle = 2;
 
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 100;
 			}
 		}
 		switch (wallblock) {
 		case 111:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 8;
 			break;
 		case 11:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 8;
 			break;
 		case 110:
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 11;
 			break;
 		case 101:
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 5;
 			break;
 		case 100:
 			srand((unsigned)time(&t));
 			if (rand() % 100 > 66) {
-				nextball->x = ball->x + 2;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x + 2;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 4;
 			}
 			else if (rand() % 100 > 33) {
-				nextball->x = ball->x;
-				nextball->y = ball->y - 1;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y - 1;
 				nextball->angle = rand() % 3 + 10;
 			}
 			else {
-				nextball->x = ball->x;
-				nextball->y = ball->y;
-				nextball->angle = rand() % 9 + 7;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y;
+				nextball->angle = rand() % 3 + 7;
 			}
 			break;
 		default:
@@ -451,17 +420,17 @@ void ballmove(void) {
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
@@ -485,79 +454,83 @@ void ballmove(void) {
 		case 100:
 			brickbreak(hitbrick->b100, hitbrick->q100);
 			break;
+		case 10:
+			brickbreak(hitbrick->b10, hitbrick->q10);
+		case 1:
+			brickbreak(hitbrick->b1, hitbrick->q1);
 		default:
 			break;
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 	case 3:
-		nextball->x = ball->x + 4;
-		nextball->y = ball->y - 1;
+		nextball->x = balls[ballnumber]->x + 4;
+		nextball->y = balls[ballnumber]->y - 1;
 		nextball->angle = 3;
 	
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 4 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 4 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 10;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 4;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 10;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 5;
 		}
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 4 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x + 4 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -576,78 +549,78 @@ void ballmove(void) {
 			brickbreak(hitbrick->b1000, hitbrick->q1000);
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 	
 
 	case 4:
-		nextball->x = ball->x + 4;
-		nextball->y = ball->y + 1;
+		nextball->x = balls[ballnumber]->x + 4;
+		nextball->y = balls[ballnumber]->y + 1;
 		nextball->angle = 4;
 		
 		//判断撞墙
 
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 4 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 4 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 9;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 3;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 9;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 2;
 		}
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 4 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 4 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -668,13 +641,13 @@ void ballmove(void) {
 		
 
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
@@ -683,59 +656,59 @@ void ballmove(void) {
 
 
 	case 5:
-		nextball->x = ball->x + 2;
-		nextball->y = ball->y + 1;
+		nextball->x = balls[ballnumber]->x + 2;
+		nextball->y = balls[ballnumber]->y + 1;
 		nextball->angle = 5;
 		
 		//判断撞墙
 
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 100;
 			}
 		}
 		switch (wallblock) {
 		case 111:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 11;
 			break;
 		case 11:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 11;
 			break;
 		case 101:
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 8;
 			break;
 		case 110:
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 2;
 			break;
 		case 100:
 			srand((unsigned)time(&t));
 			if (rand() % 100 > 66) {
-				nextball->x = ball->x + 2;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x + 2;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 1;
 			}
 			else if (rand() % 100 > 33) {
-				nextball->x = ball->x;
-				nextball->y = ball->y + 1;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y + 1;
 				nextball->angle = rand() % 3 + 7;
 			}
 			else {
-				nextball->x = ball->x;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 10;
 			}
 			break;
@@ -746,17 +719,17 @@ void ballmove(void) {
 		
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
@@ -785,76 +758,76 @@ void ballmove(void) {
 
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d %d", ball->x, ball->y, ball->angle,wallblock);
+		//printf("%d %d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle,wallblock);
 		return;
 
 
 
 	case 6:
-		nextball->x = ball->x + 2;
-		nextball->y = ball->y + 2;
+		nextball->x = balls[ballnumber]->x + 2;
+		nextball->y = balls[ballnumber]->y + 2;
 		nextball->angle = 6;
 
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 2)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 2)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 1;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 7;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x + 2;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x + 2;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 1;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 8;
 		}
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y + 2)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y + 2)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x + 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x + 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -874,74 +847,74 @@ void ballmove(void) {
 		}
 
 		
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 	case 7:
-		nextball->x = ball->x - 2;
-		nextball->y = ball->y + 2;
+		nextball->x = balls[ballnumber]->x - 2;
+		nextball->y = balls[ballnumber]->y + 2;
 		nextball->angle = 7;
 		
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 2)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 2)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 12;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 6;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 12;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 5;
 		}
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 2)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 2)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -961,71 +934,71 @@ void ballmove(void) {
 		}
 
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 
 	case 8:
-		nextball->x = ball->x - 2;
-		nextball->y = ball->y + 1;
+		nextball->x = balls[ballnumber]->x - 2;
+		nextball->y = balls[ballnumber]->y + 1;
 		nextball->angle = 8;
 	
 		//判断撞墙
 
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 100;
 			}
 		}
 		switch (wallblock) {
 		case 111:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 2;
 			break;
 		case 11:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 2;
 			break;
 		case 101:
-			nextball->x = ball->x;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 5;
 			break;
 		case 110:
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 11;
 			break;
 		case 100:
 			srand((unsigned)time(&t));
 			if (rand() % 100 > 66) {
-				nextball->x = ball->x - 2;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x - 2;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 10;
 			}
 			else if (rand() % 100 > 33) {
-				nextball->x = ball->x;
-				nextball->y = ball->y + 1;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y + 1;
 				nextball->angle = rand() % 3 + 4;
 			}
 			else {
-				nextball->x = ball->x;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 9 + 1;
 			}
 			break;
@@ -1036,17 +1009,17 @@ void ballmove(void) {
 		
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
@@ -1075,75 +1048,75 @@ void ballmove(void) {
 
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 	case 9:
-		nextball->x = ball->x - 4;
-		nextball->y = ball->y + 1;
+		nextball->x = balls[ballnumber]->x - 4;
+		nextball->y = balls[ballnumber]->y + 1;
 		nextball->angle = 9;
 		
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 4 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 4 && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 4;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 10;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y + 1;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y + 1;
 			nextball->angle = 4;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 11;
 		}
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 4 && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x - 4 && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y + 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y + 1)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -1163,74 +1136,74 @@ void ballmove(void) {
 		}
 		
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 	case 10:
-		nextball->x = ball->x - 4;
-		nextball->y = ball->y - 1;
+		nextball->x = balls[ballnumber]->x - 4;
+		nextball->y = balls[ballnumber]->y - 1;
 		nextball->angle = 10;
 		
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 4 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 4 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 3;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 9;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 3;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 11;
 		}
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 4 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 4 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000 = p;
 				briblock += 1000;
@@ -1249,69 +1222,69 @@ void ballmove(void) {
 			brickbreak(hitbrick->b1000, hitbrick->q1000);
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 	case 11:
-		nextball->x = ball->x - 2;
-		nextball->y = ball->y - 1;
+		nextball->x = balls[ballnumber]->x - 2;
+		nextball->y = balls[ballnumber]->y - 1;
 		nextball->angle = 11;
 	
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 100;
 			}
 		}
 		switch (wallblock) {
 		case 111:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 5;
 			break;
 		case 11:
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 5;
 			break;
 		case 101:
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 2;
 			break;
 		case 110:
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 8;
 			break;
 		case 100:
 			srand((unsigned)time(&t));
 			if (rand() % 100 > 66) {
-				nextball->x = ball->x - 2;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x - 2;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 7;
 			}
 			else if (rand() % 100 > 33) {
-				nextball->x = ball->x;
-				nextball->y = ball->y - 1;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y - 1;
 				nextball->angle = rand() % 3 + 1;
 			}
 			else {
-				nextball->x = ball->x;
-				nextball->y = ball->y;
+				nextball->x = balls[ballnumber]->x;
+				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 9 + 4;
 			}
 			break;
@@ -1322,17 +1295,17 @@ void ballmove(void) {
 
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
@@ -1356,82 +1329,87 @@ void ballmove(void) {
 		case 100:
 			brickbreak(hitbrick->b100, hitbrick->q100);
 			break;
+		case 10:
+			brickbreak(hitbrick->b10, hitbrick->q10);
+			break;
+		case 1:
+			brickbreak(hitbrick->b1, hitbrick->q1);
 		default:
 			break;
 
 		}
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d", ball->x, ball->y, ball->angle);
+		//printf("%d %d %d", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle);
 		return;
 
 
 
 
 	case 12:
-		nextball->x = ball->x - 2;
-		nextball->y = ball->y - 2;
+		nextball->x = balls[ballnumber]->x - 2;
+		nextball->y = balls[ballnumber]->y - 2;
 		nextball->angle = 12;
 
 		//判断撞墙
 		for (p = tray; p != NULL; p = p->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				wallblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 2)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 2)) {
 				wallblock += 100;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				wallblock += 1000;
 			}
 		}
 		if (wallblock % 10 == 1) {
-			nextball->x = ball->x;
-			nextball->y = ball->y;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y;
 			nextball->angle = 7;
 		}
 		else if (wallblock % 100 == 10) {
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 1;
 		}
 		else if (wallblock % 1000 == 100) {
-			nextball->x = ball->x - 2;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x - 2;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 7;
 		}
 		else if (wallblock % 10000 == 1000) {
-			nextball->x = ball->x;
-			nextball->y = ball->y - 1;
+			nextball->x = balls[ballnumber]->x;
+			nextball->y = balls[ballnumber]->y - 1;
 			nextball->angle = 2;
 		}
 		
 		//判断撞砖
 		for (p = first, q = first_head; p->y != 950414; p = p->next, q = q->next) {
-			if ((p->x == ball->x && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q1 = q;
 				hitbrick->b1 = p;
 				briblock += 1;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 1)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 1)) {
 				hitbrick->q10 = q;
 				hitbrick->b10 = p;
 				briblock += 10;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y - 2)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y - 2)) {
 				hitbrick->q100 = q;
 				hitbrick->b100 = p;
 				briblock += 100;
 			}
-			if ((p->x == ball->x - 2 && p->y == ball->y)) {
+			if ((p->x == balls[ballnumber]->x - 2 && p->y == balls[ballnumber]->y)) {
 				hitbrick->q1000 = q;
 				hitbrick->b1000= p;
 				briblock += 1000;
@@ -1451,13 +1429,13 @@ void ballmove(void) {
 		}
 
 
-		pos(ball->x, ball->y);
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("  ");
-		free(ball);
-		ball = nextball;
-		pos(ball->x, ball->y);
+		free(balls[ballnumber]);
+		balls[ballnumber] = nextball;
+		pos(balls[ballnumber]->x, balls[ballnumber]->y);
 		printf("●");
-		//printf("%d %d %d %d\n", ball->x, ball->y, ball->angle,briblock);
+		//printf("%d %d %d %d\n", balls[ballnumber]->x, balls[ballnumber]->y, balls[ballnumber]->angle,briblock);
 		return;
 
 
@@ -1465,46 +1443,178 @@ void ballmove(void) {
 	}
 }
 
+void bonus(void) {
+	int i;
+	bonusball(ballcount);
+	ballcount++;
+}
 
 void brickbreak(Brick* b, Brick* q) {
+	if (b == NULL) {
+		return;
+	}
 	pos(b->x, b->y);
 	printf("  ");
-	q->next = b->next;
-	//free(b);
+	if (b == first) {
+		first = first->next;
+		node2->next = first;
+		score += 10;
+		
+	}
+	else {
+		q->next = b->next;
+		score += 10;
+	}
+	time_t t;
+	srand((unsigned)time(&t));
+	if (rand() % 3 == 1) {
+		bonus();
+	}
+	
 }
 
 
 
+void endgame(int endgamestatus) {
+	system("cls");
+	pos(32,15);
+	switch (endgamestatus) {
+	case 1:
+		printf("您死了，您的得分是：%d", score);
+		break;
+	case 2:
+		printf("您已通关！您的得分是：%d", score);
+		break;
+	}
+	while (1) {
+		if (keyup(VK_RETURN)) {
+			break;
+		}
+		pos(36, 25);
+		printf("<按回车键继续>");
+		pos(99, 34);
+		Sleep(1000);
+		pos(36, 25);
+		printf("                           ");
+		pos(99, 34);
+		Sleep(500);
+	}
+	system("cls");
+	
+}
 
+void welcometogame(void) {
+	pos(44, 10);
+	printf("打砖块");
+	while (1) {
+		if (keyup(VK_RETURN)) {
+			break;
+		}
+		pos(38, 20);
+		printf("<按回车键开始游戏>");
+		pos(99, 34);
+		Sleep(1000);
+		pos(38, 20);
+		printf("                      ");
+		pos(99, 34);
+		Sleep(500);
+	}
+	system("cls");
+}
 
 
 void gameloop(void) {
 	int n = 0;
+	endgamestatus = 0;
+	score = 0;
+	ballcount = 1;
+	int i;
+	for (i = 0; i <= ballcount - 1; i++) {
+		printf("  ");
+		balls[i] = NULL;
+	}
+	initball(0);
 	first_head = (Brick*)malloc(sizeof(Brick));
-	while (ball != NULL) {
-		if (ball->y > 35) {
-			exit(0);
-		}
+	pos(65, 10);
+	printf("玩法说明：");
+	pos(65, 12);
+	printf("按←→控制方向接住小球");
+	pos(65, 14);
+	printf("击碎砖块有概率增加小球！");
+	pos(65, 16);
+	printf("击碎所有砖块获得胜利！");
+	pos(70, 30);
+	printf("by黄方");
+	while ( 1 ) {
+		
 		traymove();
-		if (n % 80 == 0) {
-			ballmove();
-			n = 1;
+		if (n % 10 == 0) {
+			int i;
+			for (i = 0; i <= ballcount - 1; i++) {
+				if (balls[i] != NULL) {
+					if (balls[i]->y > 30) {
+						pos(balls[i]->x, balls[i]->y);
+						printf("  ");
+						balls[i] = NULL;
+						continue;
+					}
+					ballmove(i);
+				}
+				
+			}
 		}
-		pos(60, 29);
+		pos(99, 34);
+		pos(65, 5);
+		printf("当前得分：%d", score);
+		pos(99, 34);
 		Sleep(1);
 		n++;
+		for (i = 0; i <= ballcount - 1; i++) {
+			endgamestatus = 1;
+			if (balls[i] != NULL) {
+				endgamestatus = 0;
+				break;
+			}
+		}
+		if (first->y == 950414) {
+			endgamestatus = 2;
+		}
+		if (endgamestatus) {
+			endgame(endgamestatus);
+			endgamestatus = 0;
+			break;
+		}
+		
 	}
-	
 	
 }
 
 
 int main(void) {
-	initmap();
-	initbricks();
-	inittray();
-	initball();
-	pos(60, 29);
+	system("mode con cols=100 lines=35");
+
+	HWND hWnd = GetConsoleWindow(); //获得cmd窗口句柄
+	RECT rc;
+	GetWindowRect(hWnd, &rc); //获得cmd窗口对应矩形
+
+	//改变cmd窗口风格
+	SetWindowLongPtr(hWnd,
+		GWL_STYLE, GetWindowLong(hWnd, GWL_STYLE) & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX & ~WS_MINIMIZEBOX);
+	//因为风格涉及到边框改变，必须调用SetWindowPos，否则无效果
+	SetWindowPos(hWnd,
+		NULL,
+		rc.left,
+		rc.top,
+		rc.right - rc.left, rc.bottom - rc.top,
+		NULL);
+
+	welcometogame();
+	while (1) {
+		initmap();
+		initbricks();
+		inittray();
+		pos(60, 29);
+		gameloop();
+	}
 	
-	gameloop();
 }
