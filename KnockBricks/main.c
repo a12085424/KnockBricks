@@ -57,6 +57,7 @@ int ballnumber;
 int ballcount;
 int endgamestatus;
 int score;
+int level;
 
 
 
@@ -64,10 +65,10 @@ int score;
 
 /*声明所有函数*/
 void pos(int x, int y);
-void initmap(void);
+void initmap(int level);
 void initbricks(void);
 void inittray(void);
-void initball(int ballnumber);
+void initball(void);
 void traymove(void);
 void ballmove(int ballnumber);
 void brickbreak(Brick* b,Brick* q);
@@ -76,6 +77,7 @@ void gameloop(void);
 void welcometogame(void);
 void bonus(void);
 void bonusball(int ballnumber);
+void levelwelcome(void);
 
 void pos(int x, int y) {
 	COORD pos;
@@ -86,7 +88,7 @@ void pos(int x, int y) {
 	SetConsoleCursorPosition(Houtput, pos);
 }
 
-void initmap(void) {
+void initmap(int level) {
 
 	Brick* nextwall = NULL;
 	int i;
@@ -115,14 +117,50 @@ void initmap(void) {
 		nextwall->next = wall;
 		wall = nextwall;
 	}
-
-	for (i = 10; i <= 46; i += 2) {
-		nextwall = (Brick*)malloc(sizeof(Brick));
-		nextwall->x = i;
-		nextwall->y = 12;
-		nextwall->next = wall;
-		wall = nextwall;
+	switch (level) {
+	case 1:
+		for (i = 10; i <= 46; i += 2) {
+			nextwall = (Brick*)malloc(sizeof(Brick));
+			nextwall->x = i;
+			nextwall->y = 12;
+			nextwall->next = wall;
+			wall = nextwall;
+		}
+		break;
+	case 2:
+		for (i = 2; i <= 20; i += 2) {
+			nextwall = (Brick*)malloc(sizeof(Brick));
+			nextwall->x = i;
+			nextwall->y = 12;
+			nextwall->next = wall;
+			wall = nextwall;
+		}
+		for (i = 36; i <= 54; i += 2) {
+			nextwall = (Brick*)malloc(sizeof(Brick));
+			nextwall->x = i;
+			nextwall->y = 12;
+			nextwall->next = wall;
+			wall = nextwall;
+		}
+		break;
+	case 3:
+		for (i = 4; i <= 56; i += 4) {
+			nextwall = (Brick*)malloc(sizeof(Brick));
+			nextwall->x = i;
+			nextwall->y = 12;
+			nextwall->next = wall;
+			wall = nextwall;
+		}
+		for (i = 2; i <= 54; i += 4) {
+			nextwall = (Brick*)malloc(sizeof(Brick));
+			nextwall->x = i;
+			nextwall->y = 15;
+			nextwall->next = wall;
+			wall = nextwall;
+		}
+		break;
 	}
+	
 	for (p = wall; p != NULL; p = p->next) {
 		pos(p->x, p->y);
 		//printf("%d %d",p->x,p->y);
@@ -202,14 +240,36 @@ void inittray(void) {
 	}
 }
 
-void initball(int ballnumber) {
+void initball(void) {
 	time_t t;
+	int i;
 	srand((unsigned)time(&t));
-	balls[ballnumber] = (Ball*)malloc(sizeof(Ball));
-	balls[ballnumber]->x = 2 * (rand() % 10) + 20;
-	balls[ballnumber]->y = 8;
-	balls[ballnumber]->angle = (rand() % 6) + 4;
-	pos(balls[ballnumber]->x, balls[ballnumber]->y);
+	for (i = 0; i <= ballcount - 1; i++) {
+		printf("  ");
+		balls[i] = NULL;
+	}
+	switch (level) {
+	case 1:
+		balls[0] = (Ball*)malloc(sizeof(Ball));
+		balls[0]->x = 2 * (rand() % 10) + 20;
+		balls[0]->y = 8;
+		balls[0]->angle = (rand() % 6) + 4;
+		break;
+	case 2:
+		balls[0] = (Ball*)malloc(sizeof(Ball));
+		balls[0]->x = 28;
+		balls[0]->y = 12;
+		balls[0]->angle = (rand() % 3 + 1) + (rand() % 2) * 9;
+		break;
+	case 3:
+		balls[0] = (Ball*)malloc(sizeof(Ball));
+		balls[0]->x = 28;
+		balls[0]->y = 13;
+		balls[0]->angle = (rand() % 6) + 4;
+		break;
+	}
+	
+	pos(balls[0]->x, balls[0]->y);
 	printf("●");
 }
 
@@ -413,6 +473,18 @@ void ballmove(int ballnumber) {
 				nextball->angle = rand() % 3 + 7;
 			}
 			break;
+		case 10:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 10;
+			}
+			break;
+		case 1:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 4;
+			}
+			break;
 		default:
 			break;
 
@@ -495,7 +567,7 @@ void ballmove(int ballnumber) {
 		if (wallblock % 10 == 1) {
 			nextball->x = balls[ballnumber]->x;
 			nextball->y = balls[ballnumber]->y;
-			nextball->angle = 10;
+			nextball->angle = 11;
 		}
 		else if (wallblock % 100 == 10) {
 			nextball->x = balls[ballnumber]->x + 2;
@@ -505,7 +577,7 @@ void ballmove(int ballnumber) {
 		else if (wallblock % 1000 == 100) {
 			nextball->x = balls[ballnumber]->x + 2;
 			nextball->y = balls[ballnumber]->y - 1;
-			nextball->angle = 10;
+			nextball->angle = 11;
 		}
 		else if (wallblock % 10000 == 1000) {
 			nextball->x = balls[ballnumber]->x + 2;
@@ -585,7 +657,7 @@ void ballmove(int ballnumber) {
 		if (wallblock % 10 == 1) {
 			nextball->x = balls[ballnumber]->x;
 			nextball->y = balls[ballnumber]->y;
-			nextball->angle = 9;
+			nextball->angle = 8;
 		}
 		else if (wallblock % 100 == 10) {
 			nextball->x = balls[ballnumber]->x + 2;
@@ -595,7 +667,7 @@ void ballmove(int ballnumber) {
 		else if (wallblock % 1000 == 100) {
 			nextball->x = balls[ballnumber]->x + 2;
 			nextball->y = balls[ballnumber]->y + 1;
-			nextball->angle = 9;
+			nextball->angle = 8;
 		}
 		else if (wallblock % 10000 == 1000) {
 			nextball->x = balls[ballnumber]->x + 2;
@@ -710,6 +782,18 @@ void ballmove(int ballnumber) {
 				nextball->x = balls[ballnumber]->x;
 				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 3 + 10;
+			}
+			break;
+		case 10:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 1;
+			}
+			break;
+		case 1:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 7;
 			}
 			break;
 		default:
@@ -1002,6 +1086,17 @@ void ballmove(int ballnumber) {
 				nextball->angle = rand() % 9 + 1;
 			}
 			break;
+		case 10:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 10;
+			}
+		case 1:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 4;
+			}
+			break;
 		default:
 			break;
 
@@ -1081,7 +1176,7 @@ void ballmove(int ballnumber) {
 		if (wallblock % 10 == 1) {
 			nextball->x = balls[ballnumber]->x;
 			nextball->y = balls[ballnumber]->y;
-			nextball->angle = 4;
+			nextball->angle = 5;
 		}
 		else if (wallblock % 100 == 10) {
 			nextball->x = balls[ballnumber]->x - 2;
@@ -1091,7 +1186,7 @@ void ballmove(int ballnumber) {
 		else if (wallblock % 1000 == 100) {
 			nextball->x = balls[ballnumber]->x - 2;
 			nextball->y = balls[ballnumber]->y + 1;
-			nextball->angle = 4;
+			nextball->angle = 5;
 		}
 		else if (wallblock % 10000 == 1000) {
 			nextball->x = balls[ballnumber]->x - 2;
@@ -1168,7 +1263,7 @@ void ballmove(int ballnumber) {
 		if (wallblock % 10 == 1) {
 			nextball->x = balls[ballnumber]->x;
 			nextball->y = balls[ballnumber]->y;
-			nextball->angle = 3;
+			nextball->angle = 2;
 		}
 		else if (wallblock % 100 == 10) {
 			nextball->x = balls[ballnumber]->x - 2;
@@ -1178,7 +1273,7 @@ void ballmove(int ballnumber) {
 		else if (wallblock % 1000 == 100) {
 			nextball->x = balls[ballnumber]->x - 2;
 			nextball->y = balls[ballnumber]->y - 1;
-			nextball->angle = 3;
+			nextball->angle = 2;
 		}
 		else if (wallblock % 10000 == 1000) {
 			nextball->x = balls[ballnumber]->x - 2;
@@ -1286,6 +1381,18 @@ void ballmove(int ballnumber) {
 				nextball->x = balls[ballnumber]->x;
 				nextball->y = balls[ballnumber]->y;
 				nextball->angle = rand() % 9 + 4;
+			}
+			break;
+		case 10:
+			srand((unsigned)time(&t));
+			if (rand() % 2 == 1) {
+				nextball->angle = rand() % 3 + 7;
+			}
+			break;
+		case 1:
+			srand((unsigned)time(&t));
+			if (rand() % 2 >= 1) {
+				nextball->angle = rand() % 3 + 1;
 			}
 			break;
 		default:
@@ -1483,6 +1590,9 @@ void endgame(int endgamestatus) {
 		printf("您死了，您的得分是：%d", score);
 		break;
 	case 2:
+		printf("过关！您的得分是：%d", score);
+		break;
+	case 3:
 		printf("您已通关！您的得分是：%d", score);
 		break;
 	}
@@ -1522,6 +1632,24 @@ void welcometogame(void) {
 	system("cls");
 }
 
+void levelwelcome(void) {
+	int i;
+	for (i = 1; i <= 3; i++) {
+		if (keyup(VK_RETURN)) {
+			break;
+		}
+		pos(26, 20);
+		printf("第%d关", level);
+		pos(99, 34);
+		Sleep(1000);
+		pos(26, 20);
+		printf("                 ");
+		pos(99, 34);
+		Sleep(500);
+	}
+
+}
+
 
 void gameloop(void) {
 	int n = 0;
@@ -1529,11 +1657,7 @@ void gameloop(void) {
 	score = 0;
 	ballcount = 1;
 	int i;
-	for (i = 0; i <= ballcount - 1; i++) {
-		printf("  ");
-		balls[i] = NULL;
-	}
-	initball(0);
+
 	first_head = (Brick*)malloc(sizeof(Brick));
 	pos(65, 10);
 	printf("玩法说明：");
@@ -1548,11 +1672,11 @@ void gameloop(void) {
 	while ( 1 ) {
 		
 		traymove();
-		if (n % 10 == 0) {
+		if (n % 70 == 0) {
 			int i;
 			for (i = 0; i <= ballcount - 1; i++) {
 				if (balls[i] != NULL) {
-					if (balls[i]->y > 30) {
+					if (balls[i]->y > 30 || balls[i]->x > 58) {
 						pos(balls[i]->x, balls[i]->y);
 						printf("  ");
 						balls[i] = NULL;
@@ -1578,10 +1702,12 @@ void gameloop(void) {
 		}
 		if (first->y == 950414) {
 			endgamestatus = 2;
+			if (level == 3) {
+				endgamestatus = 3;
+			}
 		}
 		if (endgamestatus) {
 			endgame(endgamestatus);
-			endgamestatus = 0;
 			break;
 		}
 		
@@ -1609,12 +1735,21 @@ int main(void) {
 		NULL);
 
 	welcometogame();
-	while (1) {
-		initmap();
+	for (level = 3; level <= 3;) {
+		initball(level);
+		initmap(level);
 		initbricks();
 		inittray();
+		levelwelcome();
 		pos(60, 29);
 		gameloop();
+		if (endgamestatus == 2) {
+			level++;
+		}
+		else {
+			level = 1;
+		}
+		endgamestatus = 0;
 	}
 	
 }
